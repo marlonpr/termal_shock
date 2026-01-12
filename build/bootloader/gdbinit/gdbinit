@@ -1,0 +1,2 @@
+source /Users/marlonperez/workspace/termal_shock/build/bootloader/gdbinit/symbols
+source /Users/marlonperez/workspace/termal_shock/build/bootloader/gdbinit/connect
