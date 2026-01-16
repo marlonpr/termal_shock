@@ -10,6 +10,7 @@
 #include "ui.h"
 #include "led_panel.h"
 #include "board_pins.h"
+#include "driver/uart.h"
 
 
 int phase = 0;
@@ -18,6 +19,50 @@ int local_counter = 0;
 int cycle = 0;
 
 
+int t_module = 0;
+
+int parse_t1_to_int(const char *rx)
+{
+    float t1;
+
+    if (sscanf(rx, "T1=%f", &t1) == 1) {
+        return (int)(t1 * 100.0f);   // fixed-point
+    }
+
+    return -1;  // parse error
+}
+
+
+void uart_rx_task(void *arg)
+{
+    uint8_t buf[256];
+
+    while (1) {
+        int len = uart_read_bytes(
+            UART_UI,
+            buf,
+            sizeof(buf) - 1,
+            pdMS_TO_TICKS(1000)
+        );
+
+        if (len > 0) {
+            buf[len] = '\0';  // make it a string
+            ESP_LOGI("RX", "Received: \"%s\"", (char *)buf);
+        }
+        
+        if (len > 0) {
+    buf[len] = '\0';
+
+    int t1_int = parse_t1_to_int((char *)buf);
+
+    if (t1_int >= 0) {
+        ESP_LOGI("PARSE", "T1 stored as int = %d", t1_int/100);
+        t_module = t1_int/100;
+    }
+}
+
+    }
+}
 
 
 
@@ -89,7 +134,7 @@ void drawing_task(void *arg)
 
         // ---------------- DRAW ----------------
         char buf_time[20];
-        snprintf(buf_time, sizeof(buf_time), "%d",   local_counter);        
+        snprintf(buf_time, sizeof(buf_time), "%d",   t_module);        
         
         
 
@@ -163,7 +208,7 @@ void app_main(void)
     
     
     
-      //  xTaskCreate(ui_uart_rx_task, "ui_uart_rx", 4096, NULL, 2, NULL);
+       xTaskCreatePinnedToCore(uart_rx_task, "ui_uart_rx", 4096, NULL, 2, NULL,1);
 
 
     
@@ -172,9 +217,11 @@ void app_main(void)
    // xTaskCreate(ui_uart_rx_task, "ui_uart_rx", 4096, NULL, 3, NULL);
     xTaskCreate(button_task, "button_task", 4096, NULL, 4, NULL);
 
-    while (1) {
-        vTaskDelay(pdMS_TO_TICKS(1000));
+    //xTaskCreate(uart_rx_task, "uart_rx", 2048, NULL, 10, NULL);
+
+
+
     }
-}
+
 
 
