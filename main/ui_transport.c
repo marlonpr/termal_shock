@@ -148,6 +148,10 @@ ESP_LOGI("UI_UART_RX",
          hdr.length);
 
                
+uint8_t b;
+while (uart_read_bytes(UART_UI, &b, 1, pdMS_TO_TICKS(100))) {
+    ESP_LOGI("RAW", "RX: 0x%02X '%c'", b, b);
+}
 
             // Consume packet
             memmove(rx_buf, rx_buf + total_len, rx_len - total_len);
