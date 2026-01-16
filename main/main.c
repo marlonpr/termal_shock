@@ -20,6 +20,18 @@ int cycle = 0;
 
 
 int t_module = 0;
+uint32_t cycles = 0;
+bool parse_cycles(const char *rx, uint32_t *out_cycles)
+{
+    unsigned long v;
+
+    if (sscanf(rx, "CYCLES=%lu", &v) == 1) {
+        *out_cycles = (uint32_t)v;
+        return true;
+    }
+    return false;
+}
+
 
 int parse_t1_to_int(const char *rx)
 {
@@ -59,6 +71,25 @@ void uart_rx_task(void *arg)
         ESP_LOGI("PARSE", "T1 stored as int = %d", t1_int/100);
         t_module = t1_int/100;
     }
+    
+    
+    if (len > 0) {
+    buf[len] = '\0';
+
+    ESP_LOGI("RX", "Received: \"%s\"", (char *)buf);
+
+    if (parse_cycles((char *)buf, &cycles)) {
+        ESP_LOGI("PARSE", "Cycles stored = %lu",
+                 (unsigned long)cycles);
+    }
+}
+
+    
+    
+    
+    
+    
+    
 }
 
     }
