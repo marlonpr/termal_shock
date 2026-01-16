@@ -3,6 +3,8 @@
 #include "driver/uart.h"
 #include "board_pins.h"
 #include "esp_log.h"
+#include "ui_rx_log.h"
+
 #include "crc16.h"
 
 
@@ -11,6 +13,42 @@
 
 #define RX_BUF_SIZE       256
 #define MAX_PAYLOAD_SIZE   64
+
+#define NUM_PT100 2  // number of PT100 sensors
+
+
+typedef struct __attribute__((packed)) {
+    uint8_t  fsm_state;     // SM_HOT_DWELL, SM_COLD_DWELL, SM_WAIT, etc
+    uint8_t  ts_state;      // TS_RUNNING, TS_PAUSED, TS_FINISHED
+    uint8_t  mode;          // HOT / COLD
+    uint32_t elapsed_sec;   // RTC-based
+    uint32_t cycle_count;
+} telemetry_status_t;
+
+
+
+
+
+
+typedef struct __attribute__((packed)) {
+    float pt100[NUM_PT100];
+} telemetry_temperature_t;
+
+
+
+
+
+
+
+
+typedef struct __attribute__((packed)) {
+    uint8_t event_id;
+    uint32_t param;     // meaning depends on event
+} telemetry_event_t;
+
+
+
+
 
 void ui_uart_rx_task(void *arg)
 {
@@ -26,6 +64,12 @@ void ui_uart_rx_task(void *arg)
         while (rx_len >= sizeof(packet_header_t) + 2) { // header + CRC
             packet_header_t hdr;
             memcpy(&hdr, rx_buf, sizeof(hdr));
+            
+            
+            
+            
+            
+            
 
             if (hdr.magic != PACKET_MAGIC || hdr.version != PROTOCOL_VERSION) {
                 memmove(rx_buf, rx_buf + 1, --rx_len);
@@ -43,20 +87,67 @@ void ui_uart_rx_task(void *arg)
                 memmove(rx_buf, rx_buf + 1, --rx_len);
                 continue;
             }
+            
+            
+            
+            
+     // CRC already validated here
 
-            // Handle STATUS packets
-            if (hdr.type == PKT_STATUS) {
-                payload_status_t status;
-                memcpy(&status, rx_buf + sizeof(packet_header_t), sizeof(status));
-                ESP_LOGI("UI_UART_RX",
-                         "UI RX: T1=%.2f T2=%.2f T3=%.2f F1=%d F2=%d",
-                         status.pt100_1_centi/100.0f,
-                         status.pt100_2_centi/100.0f,
-                         status.pt100_3_centi/100.0f,
-                         status.float_mask & 0x01,
-                         status.float_mask & 0x02
-                );
-            }
+ui_rx_log_push(rx_buf, total_len);
+
+uint8_t *payload = rx_buf + sizeof(packet_header_t);
+
+switch (hdr.type) {
+
+case PKT_TELEM_STATE: {
+    if (hdr.length == sizeof(telemetry_status_t)) {
+        telemetry_status_t st;
+        memcpy(&st, payload, sizeof(st));
+
+        ESP_LOGI("UI_TELEM_STATE",
+                 "FSM=%u TS=%u MODE=%u ELAPSED=%lu s CYCLES=%lu",
+                 st.fsm_state,
+                 st.ts_state,
+                 st.mode,
+                 (unsigned long)st.elapsed_sec,
+                 (unsigned long)st.cycle_count);
+    } else {
+        ESP_LOGW("UI_TELEM_STATE",
+                 "Invalid length %u", hdr.length);
+    }
+    break;
+}
+
+case PKT_TELEM_TEMP: {
+    if (hdr.length == sizeof(telemetry_temperature_t)) {
+        telemetry_temperature_t tp;
+        memcpy(&tp, payload, sizeof(tp));
+
+        for (int i = 0; i < NUM_PT100; i++) {
+            ESP_LOGI("UI_TELEM_TEMP",
+                     "PT100[%d]=%.2f C",
+                     i,
+                     tp.pt100[i]);
+        }
+    } else {
+        ESP_LOGW("UI_TELEM_TEMP",
+                 "Invalid length %u", hdr.length);
+    }
+    break;
+}
+
+default:
+    // Other packet types (CMD, ACK, etc.)
+    break;
+}
+
+ESP_LOGI("UI_UART_RX",
+         "RX packet type=0x%02X seq=%lu len=%u",
+         hdr.type,
+         hdr.sequence,
+         hdr.length);
+
+               
 
             // Consume packet
             memmove(rx_buf, rx_buf + total_len, rx_len - total_len);

@@ -4,8 +4,11 @@ idf_component_register(
         "protocol.c"
         "ui_transport.c"
         "ui_node.c"
+        "ui.c"
+        "ui_rx_log.c"
     INCLUDE_DIRS
         "."
     REQUIRES
-    
+    esp_driver_uart
+    led_panel
 )

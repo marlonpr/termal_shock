@@ -838,6 +838,13 @@ C:/Users/Marlon/workspace/termal_shock/build/esp-idf/wifi_provisioning/CMakeFile
 C:/Users/Marlon/workspace/termal_shock/build/esp-idf/wifi_provisioning/CMakeFiles/install.dir
 C:/Users/Marlon/workspace/termal_shock/build/esp-idf/wifi_provisioning/CMakeFiles/install/local.dir
 C:/Users/Marlon/workspace/termal_shock/build/esp-idf/wifi_provisioning/CMakeFiles/install/strip.dir
+C:/Users/Marlon/workspace/termal_shock/build/esp-idf/led_panel/CMakeFiles/__idf_led_panel.dir
+C:/Users/Marlon/workspace/termal_shock/build/esp-idf/led_panel/CMakeFiles/edit_cache.dir
+C:/Users/Marlon/workspace/termal_shock/build/esp-idf/led_panel/CMakeFiles/rebuild_cache.dir
+C:/Users/Marlon/workspace/termal_shock/build/esp-idf/led_panel/CMakeFiles/list_install_components.dir
+C:/Users/Marlon/workspace/termal_shock/build/esp-idf/led_panel/CMakeFiles/install.dir
+C:/Users/Marlon/workspace/termal_shock/build/esp-idf/led_panel/CMakeFiles/install/local.dir
+C:/Users/Marlon/workspace/termal_shock/build/esp-idf/led_panel/CMakeFiles/install/strip.dir
 C:/Users/Marlon/workspace/termal_shock/build/esp-idf/main/CMakeFiles/__idf_main.dir
 C:/Users/Marlon/workspace/termal_shock/build/esp-idf/main/CMakeFiles/edit_cache.dir
 C:/Users/Marlon/workspace/termal_shock/build/esp-idf/main/CMakeFiles/rebuild_cache.dir

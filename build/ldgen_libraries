@@ -157,4 +157,6 @@ C:/Users/Marlon/workspace/termal_shock/build/esp-idf/rt/librt.a
 C:/Users/Marlon/workspace/termal_shock/build/esp-idf/spiffs/libspiffs.a
 C:/Users/Marlon/workspace/termal_shock/build/esp-idf/wifi_provisioning/libwifi_provisioning.a
 C:/Users/Marlon/workspace/termal_shock/build/esp-idf/json/libjson.a
+C:/Users/Marlon/workspace/termal_shock/build/esp-idf/led_panel/libled_panel.a
 C:/Users/Marlon/workspace/termal_shock/build/esp-idf/main/libmain.a
+C:/Users/Marlon/workspace/termal_shock/build/esp-idf/led_panel/libled_panel.a
