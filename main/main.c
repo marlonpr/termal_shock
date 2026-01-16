@@ -13,12 +13,11 @@
 #include "driver/uart.h"
 
 
-int phase = 0;
-int mode = 0;
+int phase = 0; int mode = 0;
 int local_counter = 0;
 int cycle = 0;
 
-
+int t_cycles = 0;
 int t_module = 0;
 uint32_t cycles = 0;
 bool parse_cycles(const char *rx, uint32_t *out_cycles)
@@ -57,41 +56,30 @@ void uart_rx_task(void *arg)
             pdMS_TO_TICKS(1000)
         );
 
-        if (len > 0) {
-            buf[len] = '\0';  // make it a string
-            ESP_LOGI("RX", "Received: \"%s\"", (char *)buf);
+        if (len <= 0) {
+            continue;
         }
-        
-        if (len > 0) {
-    buf[len] = '\0';
 
-    int t1_int = parse_t1_to_int((char *)buf);
+        buf[len] = '\0';
+        ESP_LOGI("RX", "Received:\n%s", (char *)buf);
 
-    if (t1_int >= 0) {
-        ESP_LOGI("PARSE", "T1 stored as int = %d", t1_int/100);
-        t_module = t1_int/100;
-    }
-    
-    
-    if (len > 0) {
-    buf[len] = '\0';
+        char *line = strtok((char *)buf, "\n");
+        while (line) {
 
-    ESP_LOGI("RX", "Received: \"%s\"", (char *)buf);
+            int t1_int = parse_t1_to_int(line);
+            if (t1_int >= 0) {
+                t_module = t1_int / 100;
+                ESP_LOGI("PARSE", "T1 stored = %d", t_module);
+            }
 
-    if (parse_cycles((char *)buf, &cycles)) {
-        ESP_LOGI("PARSE", "Cycles stored = %lu",
-                 (unsigned long)cycles);
-    }
-}
+            if (parse_cycles(line, &cycles)) {
+				t_cycles = cycles;
+                ESP_LOGI("PARSE", "Cycles stored = %lu",
+                         (unsigned long)cycles);
+            }
 
-    
-    
-    
-    
-    
-    
-}
-
+            line = strtok(NULL, "\n");
+        }
     }
 }
 
@@ -108,60 +96,7 @@ void drawing_task(void *arg)
     {
         clear_back_buffer();
 
-        // ---------------- STATE MACHINE ----------------
-        if (phase == 0)   // long count: 0–90
-        {
-            if (local_counter > 90)
-            {
-                local_counter = 1;
-                phase = 1;
-            }
-        }
-        else              // short count: 0–30
-        {
-            if (local_counter > 30)
-            {
-                local_counter = 1;
-                phase = 0;
-
-                if (mode == 0)
-                {
-                    mode = 1;
-                }
-                else
-                {
-                    mode = 0;
-                    cycle++;    // completed full cycle
-                }
-            }
-        }
-
-        // ---------------- COLOR LOGIC ----------------
-        if (phase == 1)
-        {
-            // Short count → WHITE
-            r = 255;
-            g = 255;
-            b = 255;
-        }
-        else
-        {
-            // Long count → depends on mode
-            if (mode == 0)
-            {
-                // Mode 0 → RED
-                r = 255;
-                g = 0;
-                b = 0;
-            }
-            else
-            {
-                // Mode 1 → BLUE
-                r = 0;
-                g = 0;
-                b = 255;
-            }
-        }
+        
 
         // ---------------- DRAW ----------------
         char buf_time[20];
@@ -171,9 +106,9 @@ void drawing_task(void *arg)
 
         
         char buf_cycle[20];
-        snprintf(buf_cycle, sizeof(buf_cycle), "C:%03d-500", cycle);
+        snprintf(buf_cycle, sizeof(buf_cycle), "C:%03d-500", t_cycles);
 
-        draw_text(40, 10, buf_time, r, g, b);
+        draw_text(40, 10, buf_time, 255, 0, 0);
         
         draw_text(1, 43, buf_cycle, 0, 255, 0);
 
@@ -253,6 +188,5 @@ void app_main(void)
 
 
     }
-
 
 
