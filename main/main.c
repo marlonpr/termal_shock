@@ -117,25 +117,25 @@ void drawing_task(void *arg)
 	int g=0; 
 	int b=0;
 	
-	if(t_module > 30)
-	{
-		r = 255;
-		g = 0;
-		b = 0;
-	}
-	else if(t_module < 30)
-	{
-		r = 0;
-		g = 0;
-		b = 255;		
-	}
+
 
 
     while (1)
     {
         clear_back_buffer();
 
-        
+    	if(t_module > 30)
+		{
+			r = 255;
+			g = 0;
+			b = 0;
+		}
+		else if(t_module < 30)
+		{
+			r = 0;
+			g = 0;
+			b = 255;		
+		}
 
         // ---------------- DRAW ----------------
         char buf_temp[20];
@@ -159,8 +159,8 @@ void drawing_task(void *arg)
 
         draw_text(1, 43, buf_cycle, 0, 255, 0);
 
-        draw_text(45, 10, buf_temp, r, g, b);
-		draw_text(5, 10, buf_e_sec, 255, 255, 255);
+        draw_text(35, 10, buf_temp, r, g, b);
+		draw_text(3, 10, buf_e_sec, 255, 255, 255);
 
         swap_buffers();
         vTaskDelay(pdMS_TO_TICKS(250));
