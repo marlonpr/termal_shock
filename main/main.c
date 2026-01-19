@@ -18,14 +18,31 @@ int local_counter = 0;
 int cycle = 0;
 
 int t_cycles = 0;
+int t_e_sec = 0;
 int t_module = 0;
+
 uint32_t cycles = 0;
+
+uint32_t e_sec = 0;
+
+
 bool parse_cycles(const char *rx, uint32_t *out_cycles)
 {
     unsigned long v;
 
     if (sscanf(rx, "CYCLES=%lu", &v) == 1) {
         *out_cycles = (uint32_t)v;
+        return true;
+    }
+    return false;
+}
+
+bool parse_e_sec(const char *rx, uint32_t *out_e_sec)
+{
+    unsigned long v;
+
+    if (sscanf(rx, "E_SEC=%lu", &v) == 1) {
+        *out_e_sec = (uint32_t)v;
         return true;
     }
     return false;
@@ -78,6 +95,12 @@ void uart_rx_task(void *arg)
                          (unsigned long)cycles);
             }
 
+            if (parse_e_sec(line, &e_sec)) {
+				t_e_sec = e_sec;
+                ESP_LOGI("PARSE", "e_sec stored = %lu",
+                         (unsigned long)e_sec);
+            }
+
             line = strtok(NULL, "\n");
         }
     }
@@ -90,7 +113,23 @@ void drawing_task(void *arg)
 {
 
 
-    int r, g, b;
+    int r=0; 
+	int g=0; 
+	int b=0;
+	
+	if(t_module > 30)
+	{
+		r = 255;
+		g = 0;
+		b = 0;
+	}
+	else if(t_module < 30)
+	{
+		r = 0;
+		g = 0;
+		b = 255;		
+	}
+
 
     while (1)
     {
@@ -99,8 +138,8 @@ void drawing_task(void *arg)
         
 
         // ---------------- DRAW ----------------
-        char buf_time[20];
-        snprintf(buf_time, sizeof(buf_time), "%d",   t_module);        
+        char buf_temp[20];
+        snprintf(buf_temp, sizeof(buf_temp), "T:%02d",   t_module);        
         
         
 
@@ -108,9 +147,20 @@ void drawing_task(void *arg)
         char buf_cycle[20];
         snprintf(buf_cycle, sizeof(buf_cycle), "C:%03d-500", t_cycles);
 
-        draw_text(40, 10, buf_time, 255, 0, 0);
-        
+
+
+
+        char buf_e_sec[20];
+        snprintf(buf_e_sec, sizeof(buf_e_sec), "S:%02d", t_e_sec);
+
+
+
+
+
         draw_text(1, 43, buf_cycle, 0, 255, 0);
+
+        draw_text(45, 10, buf_temp, r, g, b);
+		draw_text(5, 10, buf_e_sec, 255, 255, 255);
 
         swap_buffers();
         vTaskDelay(pdMS_TO_TICKS(250));
