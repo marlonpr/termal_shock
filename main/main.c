@@ -4,26 +4,63 @@
 
 #include "esp_log.h"
 
-#include "ui_rx_log.h"
 #include "ui_transport.h"
 #include "ui_node.h"
-#include "ui.h"
 #include "led_panel.h"
 #include "board_pins.h"
 #include "driver/uart.h"
+#include "esp_timer.h"
+
+typedef enum {
+    SM_IDLE,
+    SM_PREHEAT,
+    SM_HOT_DWELL,
+    SM_COLD_DWELL,
+    SM_WAIT
+} sm_state_t;
 
 
-int phase = 0; int mode = 0;
-int local_counter = 0;
-int cycle = 0;
+typedef struct {
+    sm_state_t state;
+    uint32_t   elapsed;
+    int64_t    sync_us;
+} ui_state_t;
+
+static ui_state_t ui;
+
+bool parse_state_elapsed(const char *rx,
+                         sm_state_t *out_state,
+                         uint32_t *out_elapsed)
+{
+    int s;
+    unsigned long e;
+
+    if (sscanf(rx, "STATE=%d,ELAPSED=%lu", &s, &e) == 2) {
+        *out_state   = (sm_state_t)s;
+        *out_elapsed = (uint32_t)e;
+        return true;
+    }
+    return false;
+}
+
+
+
+uint32_t ui_state_elapsed_now(void)
+{
+    int64_t delta_us =
+        esp_timer_get_time() - ui.sync_us;
+
+    return ui.elapsed + (delta_us / 1000000);
+}
+
+
+
 
 int t_cycles = 0;
-int t_e_sec = 0;
 int t_module = 0;
-
+int mode = 0;
 uint32_t cycles = 0;
 
-uint32_t e_sec = 0;
 
 
 bool parse_cycles(const char *rx, uint32_t *out_cycles)
@@ -37,16 +74,6 @@ bool parse_cycles(const char *rx, uint32_t *out_cycles)
     return false;
 }
 
-bool parse_e_sec(const char *rx, uint32_t *out_e_sec)
-{
-    unsigned long v;
-
-    if (sscanf(rx, "E_SEC=%lu", &v) == 1) {
-        *out_e_sec = (uint32_t)v;
-        return true;
-    }
-    return false;
-}
 
 
 int parse_t1_to_int(const char *rx)
@@ -54,7 +81,7 @@ int parse_t1_to_int(const char *rx)
     float t1;
 
     if (sscanf(rx, "T1=%f", &t1) == 1) {
-        return (int)(t1 * 100.0f);   // fixed-point
+        return (int)(t1);   // fixed-point
     }
 
     return -1;  // parse error
@@ -82,26 +109,33 @@ void uart_rx_task(void *arg)
 
         char *line = strtok((char *)buf, "\n");
         while (line) {
-
-            int t1_int = parse_t1_to_int(line);
-            if (t1_int >= 0) {
-                t_module = t1_int / 100;
-                ESP_LOGI("PARSE", "T1 stored = %d", t_module);
-            }
-
-            if (parse_cycles(line, &cycles)) {
+	
+			int t = parse_t1_to_int(line);
+			if (t >= 0) {
+			    t_module = t;
+			    ESP_LOGI("PARSE", "T1 stored = %d", t_module);
+			}
+	
+	
+	        if (parse_cycles(line, &cycles)) {
 				t_cycles = cycles;
-                ESP_LOGI("PARSE", "Cycles stored = %lu",
-                         (unsigned long)cycles);
-            }
-
-            if (parse_e_sec(line, &e_sec)) {
-				t_e_sec = e_sec;
-                ESP_LOGI("PARSE", "e_sec stored = %lu",
-                         (unsigned long)e_sec);
-            }
-
-            line = strtok(NULL, "\n");
+	            ESP_LOGI("PARSE", "Cycles stored = %lu",
+	                     (unsigned long)cycles);
+	        }        
+	        
+	        if (parse_state_elapsed(line, &ui.state, &ui.elapsed)) {
+		
+			    ui.sync_us = esp_timer_get_time();
+			
+			    ESP_LOGI("PARSE",
+			        "State=%d Elapsed=%lu",
+			        ui.state,
+			        (unsigned long)ui.elapsed
+		    	);
+			}			
+	          
+	
+	        line = strtok(NULL, "\n");
         }
     }
 }
@@ -112,13 +146,9 @@ void uart_rx_task(void *arg)
 void drawing_task(void *arg)
 {
 
-
     int r=0; 
 	int g=0; 
 	int b=0;
-	
-
-
 
     while (1)
     {
@@ -139,43 +169,34 @@ void drawing_task(void *arg)
 
         // ---------------- DRAW ----------------
         char buf_temp[20];
-        snprintf(buf_temp, sizeof(buf_temp), "T:%02d",   t_module);        
-        
-        
-
+        snprintf(buf_temp, sizeof(buf_temp), "T:%02d",   t_module);
         
         char buf_cycle[20];
-        snprintf(buf_cycle, sizeof(buf_cycle), "C:%03d-500", t_cycles);
+        snprintf(buf_cycle, sizeof(buf_cycle), "C:%03d-500", t_cycles);		
 
 
-
-
-        char buf_e_sec[20];
-        snprintf(buf_e_sec, sizeof(buf_e_sec), "S:%02d", t_e_sec);
-
-
-
+/*
+        char buf_mode[20];
+		uint32_t elapsed_now = ui_state_elapsed_now();
+		
+		snprintf(buf_mode, sizeof(buf_mode),
+		         "S:%02lu",
+		         (unsigned long)elapsed_now);
+*/
+		         
+        //snprintf(buf_mode, sizeof(buf_mode), "S:00",   t_module);
 
 
         draw_text(1, 43, buf_cycle, 0, 255, 0);
 
         draw_text(35, 10, buf_temp, r, g, b);
-		draw_text(3, 10, buf_e_sec, 255, 255, 255);
+		//draw_text(3, 10, buf_mode, 255, 255, 255);
+		draw_text(3, 10, "S:00", 255, 255, 255);
 
         swap_buffers();
         vTaskDelay(pdMS_TO_TICKS(250));
     }
 }
-
-
-
-
-
-
-
-
-
-
 
 
 const char *TAG = "UI_MAIN";
@@ -188,20 +209,7 @@ void app_main(void)
 
     ui_transport_init();
 
-    buttons_init();
-    
-    
-    
-    
-    
-    //    ui_rx_log_init();
-
-    
-    
-    
-    
-    
-    
+    buttons_init();     
     
     init_pins();
 
@@ -219,24 +227,39 @@ void app_main(void)
     // Start refresh task (pin-driving) on core 0
 	xTaskCreatePinnedToCore(refresh_task, "refresh_task", 2048, NULL, 1, NULL, 0);
 	xTaskCreatePinnedToCore(drawing_task, "DrawTime", 4096, NULL, 1, NULL, 1);
-
     
-    
-    
-    
-       xTaskCreatePinnedToCore(uart_rx_task, "ui_uart_rx", 4096, NULL, 2, NULL,1);
-
-
-    
-    
-
-   // xTaskCreate(ui_uart_rx_task, "ui_uart_rx", 4096, NULL, 3, NULL);
+    xTaskCreatePinnedToCore(uart_rx_task, "ui_uart_rx", 4096, NULL, 2, NULL,1);
     xTaskCreate(button_task, "button_task", 4096, NULL, 4, NULL);
+    
+}
 
-    //xTaskCreate(uart_rx_task, "uart_rx", 2048, NULL, 10, NULL);
+
+
+/*
 
 
 
+bool parse_mode(const char *rx, int *out_mode)
+{
+    int v;
+
+    if (sscanf(rx, "MODE=%d", &v) == 1) {
+        *out_mode = (int)v;
+        return true;
     }
+    return false;
+}
+l
 
 
+
+
+
+
+
+            if (parse_mode(line, &mode)) {
+				//mode = mode;
+                ESP_LOGI("PARSE", "Current Mode = %d",
+                         mode);
+            }
+*/     
