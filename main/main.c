@@ -172,7 +172,7 @@ void drawing_task(void *arg)
         snprintf(buf_temp, sizeof(buf_temp), "T:%02d",   t_module);
         
         char buf_cycle[20];
-        snprintf(buf_cycle, sizeof(buf_cycle), "C:%03d-500", t_cycles);		
+        snprintf(buf_cycle, sizeof(buf_cycle), "C:%03d-250", t_cycles);		
 
 
 /*
