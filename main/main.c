@@ -11,6 +11,46 @@
 #include "driver/uart.h"
 #include "esp_timer.h"
 
+#include "protocol.h"
+
+volatile bool master_mode_received = false;
+volatile int current_test_mode = TEST_MODE_2;
+
+bool parse_test_mode_state(
+    const char *rx,
+    int *out_mode,
+    uint32_t *out_max_cycles)
+{
+    unsigned int received_mode;
+    unsigned long received_max_cycles;
+
+    int fields = sscanf(
+        rx,
+        "TEST_MODE=%u,MAX_CYCLES=%lu",
+        &received_mode,
+        &received_max_cycles
+    );
+
+    if (fields != 2) {
+        return false;
+    }
+
+    if (received_mode != TEST_MODE_1 &&
+        received_mode != TEST_MODE_2) {
+        return false;
+    }
+
+    if (received_max_cycles != MODE_1_MAX_CYCLES &&
+        received_max_cycles != MODE_2_MAX_CYCLES) {
+        return false;
+    }
+
+    *out_mode = (int)received_mode;
+    *out_max_cycles = (uint32_t)received_max_cycles;
+
+    return true;
+}
+
 typedef enum {
     SM_IDLE,
     SM_PREHEAT,
@@ -132,6 +172,27 @@ void uart_rx_task(void *arg)
 			        ui.state,
 			        (unsigned long)ui.elapsed
 		    	);
+			}
+			
+			
+			int received_mode;
+			uint32_t received_max_cycles;
+
+			if (parse_test_mode_state(
+			        line,
+			        &received_mode,
+			        &received_max_cycles)) {
+
+			    current_test_mode = received_mode;
+			    t_max_cycles = received_max_cycles;
+			    master_mode_received = true;
+
+			    ESP_LOGI(
+			        "PARSE",
+			        "Master MODE_%d, max_cycles=%lu",
+			        current_test_mode,
+			        (unsigned long)t_max_cycles
+			    );
 			}			
 	          
 	
@@ -145,57 +206,79 @@ void uart_rx_task(void *arg)
 
 void drawing_task(void *arg)
 {
+    int r = 0;
+    int g = 0;
+    int b = 0;
 
-    int r=0; 
-	int g=0; 
-	int b=0;
-
-    while (1)
-    {
+    while (1) {
         clear_back_buffer();
 
-    	if(t_module > 30)
-		{
-			r = 255;
-			g = 0;
-			b = 0;
-		}
-		else if(t_module < 30)
-		{
-			r = 0;
-			g = 0;
-			b = 255;		
-		}
+        if (t_module >= 30) {
+            r = 255;
+            g = 0;
+            b = 0;
+        } else {
+            r = 0;
+            g = 0;
+            b = 255;
+        }
 
-        // ---------------- DRAW ----------------
         char buf_temp[20];
-        snprintf(buf_temp, sizeof(buf_temp), "T:%02d",   t_module);
-        
+        snprintf(buf_temp,
+                 sizeof(buf_temp),
+                 "T:%02d",
+                 t_module);
+
         char buf_cycle[20];
-        snprintf(buf_cycle, sizeof(buf_cycle), "C:%03d-250", t_cycles);		
-
-
-/*
-        char buf_mode[20];
-		uint32_t elapsed_now = ui_state_elapsed_now();
-		
-		snprintf(buf_mode, sizeof(buf_mode),
-		         "S:%02lu",
-		         (unsigned long)elapsed_now);
-*/
-		         
-        //snprintf(buf_mode, sizeof(buf_mode), "S:00",   t_module);
-
+        snprintf(buf_cycle,
+                 sizeof(buf_cycle),
+                 "C:%03d-%03u",
+                 t_cycles,
+                 (unsigned)t_max_cycles);
 
         draw_text(1, 43, buf_cycle, 0, 255, 0);
-
         draw_text(35, 10, buf_temp, r, g, b);
-		//draw_text(3, 10, buf_mode, 255, 255, 255);
-		draw_text(3, 10, "S:00", 255, 255, 255);
+        draw_text(3, 10, "S:00", 255, 255, 255);
 
         swap_buffers();
         vTaskDelay(pdMS_TO_TICKS(250));
     }
+}
+
+
+
+static void master_startup_sync_task(void *arg)
+{
+    /*
+     * Allow the UART receiver and master to initialize.
+     */
+    vTaskDelay(pdMS_TO_TICKS(200));
+
+    while (!master_mode_received) {
+
+        ESP_LOGI(
+            "UI_SYNC",
+            "Requesting current mode from master"
+        );
+
+        ui_send_command(
+            CMD_REQUEST_STATE,
+            0,
+            0
+        );
+
+        /*
+         * Retry if the master was not ready or the response was lost.
+         */
+        vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+
+    ESP_LOGI(
+        "UI_SYNC",
+        "Startup synchronization complete"
+    );
+
+    vTaskDelete(NULL);
 }
 
 
@@ -230,6 +313,20 @@ void app_main(void)
     
     xTaskCreatePinnedToCore(uart_rx_task, "ui_uart_rx", 4096, NULL, 2, NULL,1);
     xTaskCreate(button_task, "button_task", 4096, NULL, 4, NULL);
+	
+	
+	
+	
+
+
+	xTaskCreate(
+	    master_startup_sync_task,
+	    "master_sync",
+	    2048,
+	    NULL,
+	    2,
+	    NULL
+	);
     
 }
 

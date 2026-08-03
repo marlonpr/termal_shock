@@ -170,6 +170,7 @@ void ui_send_command(uint8_t cmd_id, uint16_t param16, uint32_t param32)
                                                sequence++, cmd_id,
                                                param16, param32);
     if (len == 0) return;
+	
 
     ui_uart_send_bytes(buf, len);
 }

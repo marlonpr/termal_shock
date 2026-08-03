@@ -10,6 +10,8 @@
 #include "protocol.h"
 #include "board_pins.h"
 
+volatile uint32_t t_max_cycles = 0;
+
 
 /* ================= CONFIG ================= */
 
@@ -73,6 +75,8 @@ void buttons_init(void)
 
 /* ================= BUTTON → COMMAND ================= */
 
+static test_mode_t ui_test_mode = TEST_MODE_2;
+
 static void handle_button(button_t btn)
 {
     switch (btn) {
@@ -82,10 +86,18 @@ static void handle_button(button_t btn)
         ui_send_command(CMD_START_TEST, 0, 0);
         break;
 
-    case BTN_PAUSE:
-        ESP_LOGI(TAG, "PAUSE button");
-        ui_send_command(CMD_NOP, 1, 0);   // param16=1 → pause
-        break;
+		case BTN_PAUSE:
+		    ESP_LOGI(
+		        TAG,
+		        "PAUSE long press: requesting mode switch"
+		    );
+
+		    ui_send_command(
+		        CMD_SWITCH_MODE,
+		        0,
+		        0
+		    );
+		    break;
 
     case BTN_RESET:
         ESP_LOGI(TAG, "RESET button");
